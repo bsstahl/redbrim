@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Redbrim.slnx
+
+      - name: Build
+        run: dotnet build Redbrim.slnx --no-restore --configuration Release
+
+      - name: Test with coverage
+        run: >
+          dotnet test Redbrim.slnx
+          --no-build
+          --configuration Release
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+
+      - name: Install reportgenerator
+        run: dotnet tool restore
+
+      - name: Generate coverage report
+        run: >
+          dotnet reportgenerator
+          -reports:"TestResults/**/coverage.cobertura.xml"
+          -targetdir:"TestResults/CoverageReport"
+          -reporttypes:"Html;Cobertura"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: TestResults/CoverageReport
+          if-no-files-found: error
