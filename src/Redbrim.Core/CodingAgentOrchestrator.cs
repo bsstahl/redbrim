@@ -15,6 +15,10 @@ public sealed class CodingAgentOrchestrator
     public Task<AgentExecutionResult> InvokeAsync(AgentExecutionInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        return _team[0].ExecuteAsync(input);
+
+        var selectedAgent = _team.FirstOrDefault(agent => agent.Role == "Spec")
+            ?? throw new InvalidOperationException("No agent with role 'Spec' is available.");
+
+        return selectedAgent.ExecuteAsync(input);
     }
 }

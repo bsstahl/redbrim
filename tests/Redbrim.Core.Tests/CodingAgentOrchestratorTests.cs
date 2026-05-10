@@ -46,33 +46,32 @@ public class CodingAgentOrchestratorTests
     }
 
     [Fact]
-    public async Task InvokeAsync_CallsFirstAgentInTeam_AndReturnsResult()
+    public async Task InvokeAsync_SelectsSpecAgentInTeam_AndReturnsResult()
     {
-        var expectedResult = new AgentExecutionResult(true, "done");
+        var nonSpecResult = new AgentExecutionResult(true, "non-spec");
+        var expectedResult = new AgentExecutionResult(true, "spec");
         var input = new AgentExecutionInput("test prompt");
-        var firstAgent = new FakeAgent(expectedResult);
-        var orchestrator = new CodingAgentOrchestrator([firstAgent]);
+        var nonSpecAgent = new FakeAgent(nonSpecResult, "Dev");
+        var specAgent = new FakeAgent(expectedResult, "Spec");
+        var orchestrator = new CodingAgentOrchestrator([nonSpecAgent, specAgent]);
 
         var result = await orchestrator.InvokeAsync(input);
 
         Assert.Equal(expectedResult, result);
+        Assert.Equal(0, nonSpecAgent.ExecuteCallCount);
+        Assert.Equal(1, specAgent.ExecuteCallCount);
     }
 
     [Fact]
-    public async Task InvokeAsync_MultipleAgentsInTeam_CallsFirstAgentOnly()
+    public async Task InvokeAsync_WhenNoSpecAgentExists_ThrowsInvalidOperationException()
     {
-        var firstResult = new AgentExecutionResult(true, "first");
-        var secondResult = new AgentExecutionResult(true, "second");
         var input = new AgentExecutionInput("test prompt");
-        var firstAgent = new FakeAgent(firstResult);
-        var secondAgent = new FakeAgent(secondResult);
+        var firstAgent = new FakeAgent(new AgentExecutionResult(true, "first"), "Dev");
+        var secondAgent = new FakeAgent(new AgentExecutionResult(true, "second"), "Ops");
         var orchestrator = new CodingAgentOrchestrator([firstAgent, secondAgent]);
 
-        var result = await orchestrator.InvokeAsync(input);
-
-        Assert.Equal(firstResult, result);
-        Assert.Equal(1, firstAgent.ExecuteCallCount);
-        Assert.Equal(0, secondAgent.ExecuteCallCount);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            orchestrator.InvokeAsync(input));
     }
 
     [Fact]
@@ -80,7 +79,7 @@ public class CodingAgentOrchestratorTests
     {
         var agentResult = new AgentExecutionResult(true, "ok");
         var input = new AgentExecutionInput("specific prompt");
-        var agent = new FakeAgent(agentResult);
+        var agent = new FakeAgent(agentResult, "Spec");
         var orchestrator = new CodingAgentOrchestrator([agent]);
 
         await orchestrator.InvokeAsync(input);
@@ -90,10 +89,10 @@ public class CodingAgentOrchestratorTests
 
     // ── Test double ─────────────────────────────────────────────────────────
 
-    private sealed class FakeAgent(AgentExecutionResult result) : ICodingAgent
+    private sealed class FakeAgent(AgentExecutionResult result, string role = "tester") : ICodingAgent
     {
         public string Name => "fake";
-        public string Role => "tester";
+        public string Role => role;
         public IReadOnlyList<string> RequiredCapabilities => [];
 
         public int ExecuteCallCount { get; private set; }
