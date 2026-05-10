@@ -2,10 +2,10 @@ using System.Reflection;
 
 namespace Redbrim.Core.Tests;
 
-public class AgentContractTests
+public class CodingAgentTests
 {
     [Fact]
-    public void AgentContract_Defines_Expected_Minimal_Surface()
+    public void CodingAgent_Defines_Expected_Minimal_Surface()
     {
         var contractType = typeof(ICodingAgent);
 
