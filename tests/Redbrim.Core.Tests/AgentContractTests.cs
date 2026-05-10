@@ -13,10 +13,10 @@ public class AgentContractTests
         Assert.Equal(typeof(string), contractType.GetProperty(nameof(IAgentContract.Role))?.PropertyType);
         Assert.Equal(typeof(IReadOnlyList<string>), contractType.GetProperty(nameof(IAgentContract.RequiredCapabilities))?.PropertyType);
 
-        MethodInfo? executeAsync = contractType.GetMethod(nameof(IAgentContract.ExecuteAsync));
-        Assert.NotNull(executeAsync);
+        MethodInfo executeAsync = contractType.GetMethod(nameof(IAgentContract.ExecuteAsync))
+            ?? throw new Xunit.Sdk.XunitException("ExecuteAsync method was not found.");
 
-        Assert.Equal(typeof(Task<AgentExecutionResult>), executeAsync!.ReturnType);
+        Assert.Equal(typeof(Task<AgentExecutionResult>), executeAsync.ReturnType);
 
         var parameters = executeAsync.GetParameters();
         Assert.Single(parameters);
