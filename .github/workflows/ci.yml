@@ -31,7 +31,7 @@ jobs:
           dotnet test Redbrim.slnx
           --no-build
           --configuration Release
-          --collect:"XPlat Code Coverage"
+          --settings coverlet.runsettings
           --results-directory TestResults
 
       - name: Install reportgenerator
