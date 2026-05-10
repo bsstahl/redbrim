@@ -7,13 +7,13 @@ public class AgentContractTests
     [Fact]
     public void AgentContract_Defines_Expected_Minimal_Surface()
     {
-        var contractType = typeof(IAgentContract);
+        var contractType = typeof(ICodingAgent);
 
-        Assert.Equal(typeof(string), contractType.GetProperty(nameof(IAgentContract.Name))?.PropertyType);
-        Assert.Equal(typeof(string), contractType.GetProperty(nameof(IAgentContract.Role))?.PropertyType);
-        Assert.Equal(typeof(IReadOnlyList<string>), contractType.GetProperty(nameof(IAgentContract.RequiredCapabilities))?.PropertyType);
+        Assert.Equal(typeof(string), contractType.GetProperty(nameof(ICodingAgent.Name))?.PropertyType);
+        Assert.Equal(typeof(string), contractType.GetProperty(nameof(ICodingAgent.Role))?.PropertyType);
+        Assert.Equal(typeof(IReadOnlyList<string>), contractType.GetProperty(nameof(ICodingAgent.RequiredCapabilities))?.PropertyType);
 
-        MethodInfo executeAsync = contractType.GetMethod(nameof(IAgentContract.ExecuteAsync))
+        MethodInfo executeAsync = contractType.GetMethod(nameof(ICodingAgent.ExecuteAsync))
             ?? throw new Xunit.Sdk.XunitException("ExecuteAsync method was not found.");
 
         Assert.Equal(typeof(Task<AgentExecutionResult>), executeAsync.ReturnType);

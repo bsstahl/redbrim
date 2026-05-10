@@ -1,6 +1,6 @@
 namespace Redbrim.Core;
 
-public interface IAgentContract
+public interface ICodingAgent
 {
     string Name { get; }
 
