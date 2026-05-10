@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Redbrim.Core/Redbrim.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Redbrim.Core.Tests/Redbrim.Core.Tests.csproj" />
+  </Folder>
+</Solution>
