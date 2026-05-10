@@ -1,16 +1,16 @@
 namespace Redbrim.Core.Tests;
 
-public class CodingAgentInvokerTests
+public class CodingAgentOrchestratorTests
 {
     [Fact]
-    public async Task InvokeAsync_CallsAgent_AndReturnsResult()
+    public async Task InvokeAsync_CallsFirstAgentInTeam_AndReturnsResult()
     {
         var expectedResult = new AgentExecutionResult(true, "done");
         var input = new AgentExecutionInput("test prompt");
-        var agent = new FakeAgent(expectedResult);
-        var invoker = new CodingAgentInvoker(agent);
+        var firstAgent = new FakeAgent(expectedResult);
+        var orchestrator = new CodingAgentOrchestrator([firstAgent]);
 
-        var result = await invoker.InvokeAsync(input);
+        var result = await orchestrator.InvokeAsync(input);
 
         Assert.Equal(expectedResult, result);
     }
