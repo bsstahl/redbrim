@@ -22,4 +22,10 @@ public sealed class CodingAgentOrchestrator
 
         return selectedAgent.ExecuteAsync(input);
     }
+
+    public Task<AgentExecutionResult> InvokeAsync(SystemSpecification specification)
+    {
+        ArgumentNullException.ThrowIfNull(specification);
+        return InvokeAsync(new AgentExecutionInput(specification.Description));
+    }
 }

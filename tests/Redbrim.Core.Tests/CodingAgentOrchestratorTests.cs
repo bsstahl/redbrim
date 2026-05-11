@@ -42,7 +42,15 @@ public class CodingAgentOrchestratorTests
     {
         var orchestrator = new CodingAgentOrchestrator([new FakeAgent(new AgentExecutionResult(true, "ok"))]);
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            orchestrator.InvokeAsync(null!));
+            orchestrator.InvokeAsync((AgentExecutionInput)null!));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_NullSystemSpecification_ThrowsArgumentNullException()
+    {
+        var orchestrator = new CodingAgentOrchestrator([new FakeAgent(new AgentExecutionResult(true, "ok"), "Spec")]);
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            orchestrator.InvokeAsync((SystemSpecification)null!));
     }
 
     [Fact]
@@ -85,6 +93,20 @@ public class CodingAgentOrchestratorTests
         await orchestrator.InvokeAsync(input);
 
         Assert.Same(input, agent.LastReceivedInput);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_WithSystemSpecification_PassesDescriptionToSpecAgent()
+    {
+        var agentResult = new AgentExecutionResult(true, "ok");
+        var specification = new SystemSpecification("My initial system description");
+        var agent = new FakeAgent(agentResult, "Spec");
+        var orchestrator = new CodingAgentOrchestrator([agent]);
+
+        await orchestrator.InvokeAsync(specification);
+
+        Assert.NotNull(agent.LastReceivedInput);
+        Assert.Equal(specification.Description, agent.LastReceivedInput.Prompt);
     }
 
     // ── Test double ─────────────────────────────────────────────────────────
