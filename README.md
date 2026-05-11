@@ -21,25 +21,52 @@ var spec = new SystemSpecification("Users can authenticate via OAuth2.");
 
 `CodingAgentRole` is an enum that identifies the responsibility of each agent in the team:
 
+#### Core TDD Roles
+
 | Value | Responsibility |
 |---|---|
-| `Requirements` | Captures and refines system requirements |
-| `Red` | Writes failing tests (TDD red phase) |
-| `Green` | Writes minimal code to pass tests (TDD green phase) |
-| `Refactor` | Improves code without changing behaviour (TDD refactor phase) |
-| `Explain` | Generates human-readable explanations of code |
-| `Summarize` | Produces high-level summaries |
-| `Analyze` | Performs static or dynamic code analysis |
-| `Optimize` | Improves performance or resource usage |
-| `Document` | Produces or updates documentation |
-| `WorkPlan` | Breaks work into tasks or milestones |
-| `Resilience` | Adds error handling, retries, and fault tolerance |
-| `Security` | Identifies and remediates security issues |
-| `Integrate` | Handles system or service integration |
-| `Configure` | Manages configuration and environment setup |
-| `Validate` | Validates correctness, contracts, and constraints |
-| `Review` | Performs code review |
-| `Other` | Catch-all for agents with no specific built-in role |
+| `Requirements` | Defines the system's intended behavior and constraints. |
+| `Red` | Writes the next failing test that expresses desired behavior. |
+| `Green` | Writes the minimal code needed to make the failing test pass. |
+| `Refactor` | Improves internal structure without changing behavior. |
+
+#### Understanding & Explanation
+
+| Value | Responsibility |
+|---|---|
+| `Explain` | Describes why something happened or what it means. |
+| `Summarize` | Condenses information without adding interpretation. |
+| `Analyze` | Detects structural issues, risks, and architectural drift. |
+
+#### System Evolution
+
+| Value | Responsibility |
+|---|---|
+| `Optimize` | Improves performance or resource efficiency. |
+| `Document` | Produces or updates documentation for code or behavior. |
+| `WorkPlan` | Breaks goals into incremental, TDD‑safe tasks. |
+| `Resilience` | Identifies and mitigates reliability and failure‑mode risks. |
+| `Security` | Identifies and mitigates security vulnerabilities and unsafe patterns. |
+
+#### Integration & Configuration
+
+| Value | Responsibility |
+|---|---|
+| `Integrate` | Connects external APIs, libraries, or services. |
+| `Configure` | Produces configuration, environment, or setup changes. |
+
+#### Meta‑Agents
+
+| Value | Responsibility |
+|---|---|
+| `Validate` | Ensures correctness, invariants, and safety; triggers hard stops. |
+| `Review` | Evaluates quality, clarity, and design appropriateness. |
+
+#### Fallback
+
+| Value | Responsibility |
+|---|---|
+| `Other` | Represents any role outside the defined taxonomy. |
 
 ### CodingAgentOrchestrator
 
