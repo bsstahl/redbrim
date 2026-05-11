@@ -1,5 +1,12 @@
 namespace Redbrim.Core;
 
+public enum OrchestratorAction
+{
+    ProceedToNextRole,
+    RouteBackForRework,
+    HaltAndEscalateToHuman
+}
+
 public sealed class CodingAgentOrchestrator
 {
     private readonly IReadOnlyList<ICodingAgent> _team;
@@ -12,7 +19,7 @@ public sealed class CodingAgentOrchestrator
             throw new ArgumentException("The team must contain at least one agent.", nameof(team));
     }
 
-    public Task<AgentExecutionResult> InvokeAsync(AgentExecutionInput input)
+    public Task<AgentResult> InvokeAsync(AgentExecutionInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
 
@@ -22,9 +29,22 @@ public sealed class CodingAgentOrchestrator
         return selectedAgent.ExecuteAsync(input);
     }
 
-    public Task<AgentExecutionResult> InvokeAsync(SystemSpecification specification)
+    public Task<AgentResult> InvokeAsync(SystemSpecification specification)
     {
         ArgumentNullException.ThrowIfNull(specification);
         return InvokeAsync(new AgentExecutionInput(specification.Description));
+    }
+
+    public static OrchestratorAction DetermineNextAction(AgentResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        return result.StopSignal switch
+        {
+            AgentStopSignal.HardStop => OrchestratorAction.HaltAndEscalateToHuman,
+            AgentStopSignal.SoftStop => OrchestratorAction.RouteBackForRework,
+            AgentStopSignal.Continue => OrchestratorAction.ProceedToNextRole,
+            _ => throw new InvalidOperationException($"Unhandled stop signal '{result.StopSignal}'.")
+        };
     }
 }

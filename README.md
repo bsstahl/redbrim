@@ -15,7 +15,12 @@ var spec = new SystemSpecification("Users can authenticate via OAuth2.");
 
 ### ICodingAgent
 
-`ICodingAgent` is the contract that all agents implement. Each agent exposes a `Name`, a `Role` (`CodingAgentRole`), a list of `RequiredCapabilities`, and an `ExecuteAsync` method that accepts an `AgentExecutionInput` and returns an `AgentExecutionResult`.
+`ICodingAgent` is the contract that all agents implement. Each agent exposes a `Name`, a `Role` (`CodingAgentRole`), a list of `RequiredCapabilities`, and an `ExecuteAsync` method that accepts an `AgentExecutionInput` and returns an `AgentResult`.
+
+`AgentResult` carries:
+- `StopSignal` (`Continue`, `SoftStop`, `HardStop`) for safety decisions
+- `Completion` (`Done`, `NotDone`, `Unknown`) for workflow confidence
+- `Log` (`IReadOnlyList<AgentActionLogEntry>`) for structured action visibility
 
 ### CodingAgentRole
 
@@ -70,7 +75,10 @@ var spec = new SystemSpecification("Users can authenticate via OAuth2.");
 
 ### CodingAgentOrchestrator
 
-`CodingAgentOrchestrator` coordinates a team of `ICodingAgent` instances. It selects the agent with the `Requirements` role and invokes it with the provided input. The orchestrator accepts either a raw `AgentExecutionInput` or a `SystemSpecification` (whose `Description` is forwarded as the agent prompt).
+`CodingAgentOrchestrator` coordinates a team of `ICodingAgent` instances. It selects the agent with the `Requirements` role and invokes it with the provided input. The orchestrator accepts either a raw `AgentExecutionInput` or a `SystemSpecification` (whose `Description` is forwarded as the agent prompt). It also codifies stop-signal interpretation rules via `DetermineNextAction`:
+- `HardStop` → halt and escalate to a human
+- `SoftStop` → route back for rework
+- `Continue` → proceed to the next role
 
 ```csharp
 var orchestrator = new CodingAgentOrchestrator(team);
