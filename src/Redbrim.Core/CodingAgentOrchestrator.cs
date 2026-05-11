@@ -2,7 +2,6 @@ namespace Redbrim.Core;
 
 public sealed class CodingAgentOrchestrator
 {
-    private const string SpecAgentRole = "Spec";
     private readonly IReadOnlyList<ICodingAgent> _team;
 
     public CodingAgentOrchestrator(IEnumerable<ICodingAgent> team)
@@ -17,9 +16,15 @@ public sealed class CodingAgentOrchestrator
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        var selectedAgent = _team.FirstOrDefault(agent => agent.Role == SpecAgentRole)
-            ?? throw new InvalidOperationException($"No agent with role '{SpecAgentRole}' is available.");
+        var selectedAgent = _team.FirstOrDefault(agent => agent.Role == CodingAgentRole.Requirements)
+            ?? throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
 
         return selectedAgent.ExecuteAsync(input);
+    }
+
+    public Task<AgentExecutionResult> InvokeAsync(SystemSpecification specification)
+    {
+        ArgumentNullException.ThrowIfNull(specification);
+        return InvokeAsync(new AgentExecutionInput(specification.Description));
     }
 }
