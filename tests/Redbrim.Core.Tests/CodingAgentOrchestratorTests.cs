@@ -48,7 +48,7 @@ public class CodingAgentOrchestratorTests
     [Fact]
     public async Task InvokeAsync_NullSystemSpecification_ThrowsArgumentNullException()
     {
-        var orchestrator = new CodingAgentOrchestrator([new FakeAgent(new AgentExecutionResult(true, "ok"), "Spec")]);
+        var orchestrator = new CodingAgentOrchestrator([new FakeAgent(new AgentExecutionResult(true, "ok"), CodingAgentRole.Requirements)]);
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             orchestrator.InvokeAsync((SystemSpecification)null!));
     }
@@ -59,8 +59,8 @@ public class CodingAgentOrchestratorTests
         var nonSpecResult = new AgentExecutionResult(true, "non-spec");
         var expectedResult = new AgentExecutionResult(true, "spec");
         var input = new AgentExecutionInput("test prompt");
-        var nonSpecAgent = new FakeAgent(nonSpecResult, "Dev");
-        var specAgent = new FakeAgent(expectedResult, "Spec");
+        var nonSpecAgent = new FakeAgent(nonSpecResult, CodingAgentRole.Red);
+        var specAgent = new FakeAgent(expectedResult, CodingAgentRole.Requirements);
         var orchestrator = new CodingAgentOrchestrator([nonSpecAgent, specAgent]);
 
         var result = await orchestrator.InvokeAsync(input);
@@ -74,8 +74,8 @@ public class CodingAgentOrchestratorTests
     public async Task InvokeAsync_WhenNoSpecAgentExists_ThrowsInvalidOperationException()
     {
         var input = new AgentExecutionInput("test prompt");
-        var firstAgent = new FakeAgent(new AgentExecutionResult(true, "first"), "Dev");
-        var secondAgent = new FakeAgent(new AgentExecutionResult(true, "second"), "Ops");
+        var firstAgent = new FakeAgent(new AgentExecutionResult(true, "first"), CodingAgentRole.Red);
+        var secondAgent = new FakeAgent(new AgentExecutionResult(true, "second"), CodingAgentRole.Green);
         var orchestrator = new CodingAgentOrchestrator([firstAgent, secondAgent]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -87,7 +87,7 @@ public class CodingAgentOrchestratorTests
     {
         var agentResult = new AgentExecutionResult(true, "ok");
         var input = new AgentExecutionInput("specific prompt");
-        var agent = new FakeAgent(agentResult, "Spec");
+        var agent = new FakeAgent(agentResult, CodingAgentRole.Requirements);
         var orchestrator = new CodingAgentOrchestrator([agent]);
 
         await orchestrator.InvokeAsync(input);
@@ -100,7 +100,7 @@ public class CodingAgentOrchestratorTests
     {
         var agentResult = new AgentExecutionResult(true, "ok");
         var specification = new SystemSpecification("My initial system description");
-        var agent = new FakeAgent(agentResult, "Spec");
+        var agent = new FakeAgent(agentResult, CodingAgentRole.Requirements);
         var orchestrator = new CodingAgentOrchestrator([agent]);
 
         await orchestrator.InvokeAsync(specification);
@@ -111,10 +111,10 @@ public class CodingAgentOrchestratorTests
 
     // ── Test double ─────────────────────────────────────────────────────────
 
-    private sealed class FakeAgent(AgentExecutionResult result, string role = "tester") : ICodingAgent
+    private sealed class FakeAgent(AgentExecutionResult result, CodingAgentRole role = CodingAgentRole.Other) : ICodingAgent
     {
         public string Name => "fake";
-        public string Role => role;
+        public CodingAgentRole Role => role;
         public IReadOnlyList<string> RequiredCapabilities => [];
 
         public int ExecuteCallCount { get; private set; }

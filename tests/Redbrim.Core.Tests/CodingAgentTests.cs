@@ -10,7 +10,7 @@ public class CodingAgentTests
         var contractType = typeof(ICodingAgent);
 
         Assert.Equal(typeof(string), contractType.GetProperty(nameof(ICodingAgent.Name))?.PropertyType);
-        Assert.Equal(typeof(string), contractType.GetProperty(nameof(ICodingAgent.Role))?.PropertyType);
+        Assert.Equal(typeof(CodingAgentRole), contractType.GetProperty(nameof(ICodingAgent.Role))?.PropertyType);
         Assert.Equal(typeof(IReadOnlyList<string>), contractType.GetProperty(nameof(ICodingAgent.RequiredCapabilities))?.PropertyType);
 
         MethodInfo executeAsync = contractType.GetMethod(nameof(ICodingAgent.ExecuteAsync))

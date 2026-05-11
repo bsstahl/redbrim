@@ -4,7 +4,7 @@ public interface ICodingAgent
 {
     string Name { get; }
 
-    string Role { get; }
+    CodingAgentRole Role { get; }
 
     IReadOnlyList<string> RequiredCapabilities { get; }
 
