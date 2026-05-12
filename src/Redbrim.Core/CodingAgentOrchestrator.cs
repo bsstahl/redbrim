@@ -29,13 +29,16 @@ public sealed class CodingAgentOrchestrator
         var currentAgent = selectedAgent;
         List<AgentActionLogEntry> accumulatedLog = input.Log is null ? [] : [.. input.Log];
 
-        while (true)
+        var shouldContinue = true;
+        AgentResult? latestResult = null;
+
+        while (shouldContinue)
         {
             var currentInput = input with { Log = accumulatedLog };
             var result = await currentAgent.ExecuteAsync(currentInput).ConfigureAwait(false);
+            latestResult = result;
 
-            if (result.Log.Count > 0)
-                accumulatedLog.AddRange(result.Log);
+            accumulatedLog.AddRange(result.Log);
 
             var resultWithAccumulatedLog = result with { Log = accumulatedLog };
             var action = DetermineRecommendedAction(resultWithAccumulatedLog);
@@ -49,10 +52,17 @@ public sealed class CodingAgentOrchestrator
                 .FirstOrDefault();
 
             if (nextAgent is null)
-                return resultWithAccumulatedLog;
+            {
+                shouldContinue = false;
+                continue;
+            }
 
             currentAgent = nextAgent;
         }
+
+        return latestResult is null
+            ? throw new InvalidOperationException("No agent result was produced.")
+            : latestResult with { Log = accumulatedLog };
     }
 
     public static RecommendedAction DetermineRecommendedAction(AgentResult result)
