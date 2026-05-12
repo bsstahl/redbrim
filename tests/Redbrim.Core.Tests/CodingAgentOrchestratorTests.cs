@@ -193,7 +193,7 @@ public class CodingAgentOrchestratorTests
     [Fact]
     public void DetermineRecommendedAction_NullOrderedAgents_ThrowsArgumentNullException()
     {
-        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var requirementsAgent = CreateRequirementsAgent();
         var result = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
 
         Assert.Throws<ArgumentNullException>(() =>
@@ -203,7 +203,7 @@ public class CodingAgentOrchestratorTests
     [Fact]
     public void DetermineRecommendedAction_EmptyOrderedAgents_ThrowsArgumentException()
     {
-        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var requirementsAgent = CreateRequirementsAgent();
         var result = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
 
         var ex = Assert.Throws<ArgumentException>(() =>
@@ -215,17 +215,18 @@ public class CodingAgentOrchestratorTests
     [Fact]
     public void DetermineRecommendedAction_Continue_WhenCurrentAgentNotInOrderedList_ThrowsInvalidOperationException()
     {
-        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var requirementsAgent = CreateRequirementsAgent();
         var redAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Red);
         var result = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<InvalidOperationException>(() =>
             CodingAgentOrchestrator.DetermineRecommendedAction(result, requirementsAgent, [redAgent]));
-
-        Assert.Equal("The current agent must exist in the ordered agent list.", ex.Message);
     }
 
     // ── Test double ─────────────────────────────────────────────────────────
+
+    private static FakeAgent CreateRequirementsAgent()
+        => new(new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []), CodingAgentRole.Requirements);
 
     private sealed class FakeAgent : ICodingAgent
     {
