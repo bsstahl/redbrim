@@ -83,6 +83,6 @@ var spec = new SystemSpecification("Users can authenticate via OAuth2.");
 ```csharp
 var orchestrator = new CodingAgentOrchestrator(team);
 var result = await orchestrator.InvokeAsync(new AgentExecutionInput(
-    "Describe the system here.",
-    new SystemSpecification("Describe the system here.")));
+    "Refine requirements into actionable acceptance criteria.",
+    new SystemSpecification("Build an OAuth2-based authentication flow.")));
 ```
