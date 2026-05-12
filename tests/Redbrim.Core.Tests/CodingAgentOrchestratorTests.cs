@@ -1,5 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Redbrim.Core.Tests;
 
+[ExcludeFromCodeCoverage]
 public class CodingAgentOrchestratorTests
 {
     // ── Constructor ──────────────────────────────────────────────────────────

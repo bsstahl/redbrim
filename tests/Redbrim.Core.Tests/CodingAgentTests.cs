@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Redbrim.Core.Tests;
 
+[ExcludeFromCodeCoverage]
 public class CodingAgentTests
 {
     [Fact]
