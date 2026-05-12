@@ -7,6 +7,11 @@ public enum RecommendedAction
     HaltAndEscalateToHuman
 }
 
+public sealed record AgentRoutingDecision(
+    bool ShouldHalt,
+    ICodingAgent? NextAgent,
+    RecommendedAction Action);
+
 public sealed class CodingAgentOrchestrator
 {
     private readonly IReadOnlyList<ICodingAgent> _team;
@@ -26,46 +31,75 @@ public sealed class CodingAgentOrchestrator
         var selectedAgent = _team.FirstOrDefault(agent => agent.Role == CodingAgentRole.Requirements)
             ?? throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
 
-        var orderedAgents = _team
-            .OrderBy(agent => agent.Role)
-            .ToList();
-        var startIndex = orderedAgents.FindIndex(agent => ReferenceEquals(agent, selectedAgent));
-        if (startIndex < 0)
-            throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
-
+        var orderedAgents = _team.OrderBy(agent => agent.Role).ToList();
+        ICodingAgent currentAgent = selectedAgent;
         List<AgentActionLogEntry> accumulatedLog = [.. (input.Log ?? [])];
 
-        for (var index = startIndex; index < orderedAgents.Count; index++)
+        while (true)
         {
-            var currentAgent = orderedAgents[index];
             var currentInput = input with { Log = accumulatedLog };
             var result = await currentAgent.ExecuteAsync(currentInput).ConfigureAwait(false);
 
             accumulatedLog.AddRange(result.Log);
 
             var resultWithAccumulatedLog = result with { Log = accumulatedLog };
-            var action = DetermineRecommendedAction(resultWithAccumulatedLog);
+            var decision = DetermineRecommendedAction(resultWithAccumulatedLog, currentAgent, orderedAgents);
 
-            if (action is RecommendedAction.HaltAndEscalateToHuman or RecommendedAction.RouteBackForRework)
+            if (decision.ShouldHalt)
                 return resultWithAccumulatedLog;
 
-            if (index == orderedAgents.Count - 1)
-                return resultWithAccumulatedLog;
+            currentAgent = decision.NextAgent
+                ?? throw new InvalidOperationException("A continuation decision must provide a next agent.");
         }
-
-        throw new InvalidOperationException("No agent result was produced.");
     }
 
-    public static RecommendedAction DetermineRecommendedAction(AgentResult result)
+    public static AgentRoutingDecision DetermineRecommendedAction(
+        AgentResult result,
+        ICodingAgent currentAgent,
+        IReadOnlyList<ICodingAgent> orderedAgents)
     {
         ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(currentAgent);
+        ArgumentNullException.ThrowIfNull(orderedAgents);
+        if (orderedAgents.Count == 0)
+            throw new ArgumentException("The ordered agent list must contain at least one agent.", nameof(orderedAgents));
 
         return result.StopSignal switch
         {
-            AgentStopSignal.HardStop => RecommendedAction.HaltAndEscalateToHuman,
-            AgentStopSignal.SoftStop => RecommendedAction.RouteBackForRework,
-            AgentStopSignal.Continue => RecommendedAction.ProceedToNextRole,
+            AgentStopSignal.HardStop => new AgentRoutingDecision(
+                ShouldHalt: true,
+                NextAgent: null,
+                Action: RecommendedAction.HaltAndEscalateToHuman),
+            AgentStopSignal.SoftStop => new AgentRoutingDecision(
+                ShouldHalt: true,
+                NextAgent: null,
+                Action: RecommendedAction.RouteBackForRework),
+            AgentStopSignal.Continue => CreateContinueDecision(currentAgent, orderedAgents),
             _ => throw new InvalidOperationException($"Unhandled stop signal '{result.StopSignal}'.")
         };
+    }
+
+    private static AgentRoutingDecision CreateContinueDecision(
+        ICodingAgent currentAgent,
+        IReadOnlyList<ICodingAgent> orderedAgents)
+    {
+        var currentIndex = -1;
+        for (var index = 0; index < orderedAgents.Count; index++)
+        {
+            if (!ReferenceEquals(orderedAgents[index], currentAgent))
+                continue;
+
+            currentIndex = index;
+            break;
+        }
+
+        if (currentIndex < 0)
+            throw new InvalidOperationException("The current agent must exist in the ordered agent list.");
+
+        var nextIndex = (currentIndex + 1) % orderedAgents.Count;
+        return new AgentRoutingDecision(
+            ShouldHalt: false,
+            NextAgent: orderedAgents[nextIndex],
+            Action: RecommendedAction.ProceedToNextRole);
     }
 }

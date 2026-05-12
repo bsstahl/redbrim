@@ -131,46 +131,85 @@ public class CodingAgentOrchestratorTests
     }
 
     [Fact]
-    public async Task InvokeAsync_WhenContinuingWithoutNextAgent_ReturnsLastResult()
+    public async Task InvokeAsync_WhenSingleAgentContinues_KeepsLoopingUntilStopSignal()
     {
-        var requirementsResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, []);
-        var requirementsAgent = new FakeAgent(requirementsResult, CodingAgentRole.Requirements);
+        var firstResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
+        var secondResult = new AgentResult(AgentStopSignal.SoftStop, AgentCompletion.Done, []);
+        var requirementsAgent = new FakeAgent([firstResult, secondResult], CodingAgentRole.Requirements);
         var orchestrator = new CodingAgentOrchestrator([requirementsAgent]);
 
         var result = await orchestrator.InvokeAsync(new AgentExecutionInput("prompt"));
 
-        Assert.Equal(AgentStopSignal.Continue, result.StopSignal);
-        Assert.Equal(1, requirementsAgent.ExecuteCallCount);
+        Assert.Equal(AgentStopSignal.SoftStop, result.StopSignal);
+        Assert.Equal(2, requirementsAgent.ExecuteCallCount);
     }
 
     [Theory]
-    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Done, RecommendedAction.HaltAndEscalateToHuman)]
-    [InlineData(AgentStopSignal.HardStop, AgentCompletion.NotDone, RecommendedAction.HaltAndEscalateToHuman)]
-    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Indeterminate, RecommendedAction.HaltAndEscalateToHuman)]
-    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Done, RecommendedAction.RouteBackForRework)]
-    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.NotDone, RecommendedAction.RouteBackForRework)]
-    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Indeterminate, RecommendedAction.RouteBackForRework)]
-    [InlineData(AgentStopSignal.Continue, AgentCompletion.Done, RecommendedAction.ProceedToNextRole)]
-    [InlineData(AgentStopSignal.Continue, AgentCompletion.NotDone, RecommendedAction.ProceedToNextRole)]
-    [InlineData(AgentStopSignal.Continue, AgentCompletion.Indeterminate, RecommendedAction.ProceedToNextRole)]
+    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Done, RecommendedAction.HaltAndEscalateToHuman, true)]
+    [InlineData(AgentStopSignal.HardStop, AgentCompletion.NotDone, RecommendedAction.HaltAndEscalateToHuman, true)]
+    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Indeterminate, RecommendedAction.HaltAndEscalateToHuman, true)]
+    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Done, RecommendedAction.RouteBackForRework, true)]
+    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.NotDone, RecommendedAction.RouteBackForRework, true)]
+    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Indeterminate, RecommendedAction.RouteBackForRework, true)]
+    [InlineData(AgentStopSignal.Continue, AgentCompletion.Done, RecommendedAction.ProceedToNextRole, false)]
+    [InlineData(AgentStopSignal.Continue, AgentCompletion.NotDone, RecommendedAction.ProceedToNextRole, false)]
+    [InlineData(AgentStopSignal.Continue, AgentCompletion.Indeterminate, RecommendedAction.ProceedToNextRole, false)]
     public void DetermineRecommendedAction_UsesStopSignal_AndIgnoresCompletion(
         AgentStopSignal stopSignal,
         AgentCompletion completion,
-        RecommendedAction expectedAction)
+        RecommendedAction expectedAction,
+        bool expectedShouldHalt)
     {
+        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var redAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Red);
+        var orderedAgents = new ICodingAgent[] { requirementsAgent, redAgent };
         var result = new AgentResult(stopSignal, completion, []);
 
-        var action = CodingAgentOrchestrator.DetermineRecommendedAction(result);
+        var decision = CodingAgentOrchestrator.DetermineRecommendedAction(result, requirementsAgent, orderedAgents);
 
-        Assert.Equal(expectedAction, action);
+        Assert.Equal(expectedAction, decision.Action);
+        Assert.Equal(expectedShouldHalt, decision.ShouldHalt);
+        Assert.Equal(expectedShouldHalt ? null : redAgent, decision.NextAgent);
+    }
+
+    [Fact]
+    public void DetermineRecommendedAction_Continue_FromLastAgent_WrapsToFirstAgent()
+    {
+        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var redAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Red);
+        var orderedAgents = new ICodingAgent[] { requirementsAgent, redAgent };
+        var result = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
+
+        var decision = CodingAgentOrchestrator.DetermineRecommendedAction(result, redAgent, orderedAgents);
+
+        Assert.False(decision.ShouldHalt);
+        Assert.Equal(RecommendedAction.ProceedToNextRole, decision.Action);
+        Assert.Equal(requirementsAgent, decision.NextAgent);
     }
 
     // ── Test double ─────────────────────────────────────────────────────────
 
-    private sealed class FakeAgent(AgentResult result, CodingAgentRole role = CodingAgentRole.Other) : ICodingAgent
+    private sealed class FakeAgent : ICodingAgent
     {
+        private readonly IReadOnlyList<AgentResult> _results;
+
+        public FakeAgent(AgentResult result, CodingAgentRole role = CodingAgentRole.Other)
+            : this([result], role)
+        {
+        }
+
+        public FakeAgent(IReadOnlyList<AgentResult> results, CodingAgentRole role = CodingAgentRole.Other)
+        {
+            ArgumentNullException.ThrowIfNull(results);
+            if (results.Count == 0)
+                throw new ArgumentException("At least one result is required.", nameof(results));
+
+            _results = results;
+            Role = role;
+        }
+
         public string Name => "fake";
-        public CodingAgentRole Role => role;
+        public CodingAgentRole Role { get; }
         public IReadOnlyList<string> RequiredCapabilities => [];
 
         public int ExecuteCallCount { get; private set; }
@@ -180,7 +219,8 @@ public class CodingAgentOrchestratorTests
         {
             ExecuteCallCount++;
             LastReceivedInput = input;
-            return Task.FromResult(result);
+            var resultIndex = Math.Min(ExecuteCallCount - 1, _results.Count - 1);
+            return Task.FromResult(_results[resultIndex]);
         }
     }
 }
