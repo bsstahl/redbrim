@@ -190,6 +190,41 @@ public class CodingAgentOrchestratorTests
         Assert.Equal(requirementsAgent, decision.NextAgent);
     }
 
+    [Fact]
+    public void DetermineRecommendedAction_NullOrderedAgents_ThrowsArgumentNullException()
+    {
+        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var result = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
+
+        Assert.Throws<ArgumentNullException>(() =>
+            CodingAgentOrchestrator.DetermineRecommendedAction(result, requirementsAgent, null!));
+    }
+
+    [Fact]
+    public void DetermineRecommendedAction_EmptyOrderedAgents_ThrowsArgumentException()
+    {
+        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var result = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
+
+        var ex = Assert.Throws<ArgumentException>(() =>
+            CodingAgentOrchestrator.DetermineRecommendedAction(result, requirementsAgent, []));
+
+        Assert.Equal("orderedAgents", ex.ParamName);
+    }
+
+    [Fact]
+    public void DetermineRecommendedAction_Continue_WhenCurrentAgentNotInOrderedList_ThrowsInvalidOperationException()
+    {
+        var requirementsAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var redAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Red);
+        var result = new AgentResult(AgentStopSignal.Continue, AgentCompletion.NotDone, []);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            CodingAgentOrchestrator.DetermineRecommendedAction(result, requirementsAgent, [redAgent]));
+
+        Assert.Equal("The current agent must exist in the ordered agent list.", ex.Message);
+    }
+
     // ── Test double ─────────────────────────────────────────────────────────
 
     private sealed class FakeAgent : ICodingAgent
