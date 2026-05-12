@@ -26,17 +26,20 @@ public sealed class CodingAgentOrchestrator
         var selectedAgent = _team.FirstOrDefault(agent => agent.Role == CodingAgentRole.Requirements)
             ?? throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
 
-        var currentAgent = selectedAgent;
+        var orderedAgents = _team
+            .OrderBy(agent => agent.Role)
+            .ToList();
+        var startIndex = orderedAgents.FindIndex(agent => ReferenceEquals(agent, selectedAgent));
+        if (startIndex < 0)
+            throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
+
         List<AgentActionLogEntry> accumulatedLog = [.. (input.Log ?? [])];
 
-        var shouldContinue = true;
-        AgentResult? latestResult = null;
-
-        while (shouldContinue)
+        for (var index = startIndex; index < orderedAgents.Count; index++)
         {
+            var currentAgent = orderedAgents[index];
             var currentInput = input with { Log = accumulatedLog };
             var result = await currentAgent.ExecuteAsync(currentInput).ConfigureAwait(false);
-            latestResult = result;
 
             accumulatedLog.AddRange(result.Log);
 
@@ -46,23 +49,11 @@ public sealed class CodingAgentOrchestrator
             if (action is RecommendedAction.HaltAndEscalateToHuman or RecommendedAction.RouteBackForRework)
                 return resultWithAccumulatedLog;
 
-            var nextAgent = _team
-                .Where(agent => agent.Role > currentAgent.Role)
-                .OrderBy(agent => agent.Role)
-                .FirstOrDefault();
-
-            if (nextAgent is null)
-            {
-                shouldContinue = false;
-                break;
-            }
-
-            currentAgent = nextAgent;
+            if (index == orderedAgents.Count - 1)
+                return resultWithAccumulatedLog;
         }
 
-        return latestResult is null
-            ? throw new InvalidOperationException("No agent result was produced.")
-            : latestResult with { Log = accumulatedLog };
+        throw new InvalidOperationException("No agent result was produced.");
     }
 
     public static RecommendedAction DetermineRecommendedAction(AgentResult result)
