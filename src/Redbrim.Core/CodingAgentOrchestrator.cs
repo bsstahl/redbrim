@@ -27,7 +27,7 @@ public sealed class CodingAgentOrchestrator
             ?? throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
 
         var currentAgent = selectedAgent;
-        List<AgentActionLogEntry> accumulatedLog = input.Log is null ? [] : [.. input.Log];
+        List<AgentActionLogEntry> accumulatedLog = [.. (input.Log ?? [])];
 
         var shouldContinue = true;
         AgentResult? latestResult = null;
@@ -54,7 +54,7 @@ public sealed class CodingAgentOrchestrator
             if (nextAgent is null)
             {
                 shouldContinue = false;
-                continue;
+                break;
             }
 
             currentAgent = nextAgent;
