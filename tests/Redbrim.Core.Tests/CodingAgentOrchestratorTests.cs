@@ -48,28 +48,36 @@ public class CodingAgentOrchestratorTests
     [Fact]
     public async Task InvokeAsync_InputCanIncludeSystemSpecification()
     {
-        var orchestrator = new CodingAgentOrchestrator([new FakeAgent(new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, []), CodingAgentRole.Requirements)]);
+        var agent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []), CodingAgentRole.Requirements);
+        var orchestrator = new CodingAgentOrchestrator([agent]);
         var specification = new SystemSpecification("spec");
         var input = new AgentExecutionInput("prompt", specification);
 
         await orchestrator.InvokeAsync(input);
+
+        Assert.NotNull(agent.LastReceivedInput);
+        Assert.Same(specification, agent.LastReceivedInput.SystemSpecification);
     }
 
     [Fact]
-    public async Task InvokeAsync_SelectsSpecAgentInTeam_AndReturnsResult()
+    public async Task InvokeAsync_StartsWithRequirements_ThenRunsNextRoleUntilStopSignal()
     {
-        var nonSpecResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "fake", CodingAgentRole.Red, "non-spec")]);
-        var expectedResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "fake", CodingAgentRole.Requirements, "spec")]);
+        var requirementsResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "req", CodingAgentRole.Requirements, "requirements")]);
+        var redResult = new AgentResult(AgentStopSignal.SoftStop, AgentCompletion.NotDone, [new AgentActionLogEntry(DateTime.UtcNow, "red", CodingAgentRole.Red, "red")]);
         var input = new AgentExecutionInput("test prompt");
-        var nonSpecAgent = new FakeAgent(nonSpecResult, CodingAgentRole.Red);
-        var specAgent = new FakeAgent(expectedResult, CodingAgentRole.Requirements);
-        var orchestrator = new CodingAgentOrchestrator([nonSpecAgent, specAgent]);
+        var requirementsAgent = new FakeAgent(requirementsResult, CodingAgentRole.Requirements);
+        var redAgent = new FakeAgent(redResult, CodingAgentRole.Red);
+        var greenAgent = new FakeAgent(new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Indeterminate, []), CodingAgentRole.Green);
+        var orchestrator = new CodingAgentOrchestrator([redAgent, requirementsAgent, greenAgent]);
 
         var result = await orchestrator.InvokeAsync(input);
 
-        Assert.Equal(expectedResult, result);
-        Assert.Equal(0, nonSpecAgent.ExecuteCallCount);
-        Assert.Equal(1, specAgent.ExecuteCallCount);
+        Assert.Equal(AgentStopSignal.SoftStop, result.StopSignal);
+        Assert.Equal(AgentCompletion.NotDone, result.Completion);
+        Assert.Equal(2, result.Log.Count);
+        Assert.Equal(1, requirementsAgent.ExecuteCallCount);
+        Assert.Equal(1, redAgent.ExecuteCallCount);
+        Assert.Equal(0, greenAgent.ExecuteCallCount);
     }
 
     [Fact]
@@ -87,29 +95,52 @@ public class CodingAgentOrchestratorTests
     [Fact]
     public async Task InvokeAsync_ForwardsInputToAgent()
     {
-        var agentResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, []);
+        var agentResult = new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Done, []);
         var input = new AgentExecutionInput("specific prompt");
         var agent = new FakeAgent(agentResult, CodingAgentRole.Requirements);
         var orchestrator = new CodingAgentOrchestrator([agent]);
 
         await orchestrator.InvokeAsync(input);
 
-        Assert.Same(input, agent.LastReceivedInput);
+        Assert.NotNull(agent.LastReceivedInput);
+        Assert.Equal(input.Prompt, agent.LastReceivedInput.Prompt);
+        Assert.Equal(input.SystemSpecification, agent.LastReceivedInput.SystemSpecification);
+        Assert.Equal(input.Context, agent.LastReceivedInput.Context);
     }
 
     [Fact]
-    public async Task InvokeAsync_WithSystemSpecificationInInput_ForwardsInputToSpecAgent()
+    public async Task InvokeAsync_OnContinue_PassesAccumulatedLogToNextAgent()
     {
-        var agentResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, []);
+        var firstLog = new AgentActionLogEntry(DateTime.UtcNow, "requirements", CodingAgentRole.Requirements, "first");
+        var initialLog = new AgentActionLogEntry(DateTime.UtcNow, "seed", CodingAgentRole.Other, "seed");
+        var requirementsResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [firstLog]);
+        var redResult = new AgentResult(AgentStopSignal.HardStop, AgentCompletion.Indeterminate, []);
         var specification = new SystemSpecification("My initial system description");
-        var agent = new FakeAgent(agentResult, CodingAgentRole.Requirements);
-        var orchestrator = new CodingAgentOrchestrator([agent]);
-        var input = new AgentExecutionInput("My prompt", specification);
+        var requirementsAgent = new FakeAgent(requirementsResult, CodingAgentRole.Requirements);
+        var redAgent = new FakeAgent(redResult, CodingAgentRole.Red);
+        var orchestrator = new CodingAgentOrchestrator([requirementsAgent, redAgent]);
+        var input = new AgentExecutionInput("My prompt", specification, [initialLog]);
 
-        await orchestrator.InvokeAsync(input);
+        var result = await orchestrator.InvokeAsync(input);
 
-        Assert.NotNull(agent.LastReceivedInput);
-        Assert.Same(specification, agent.LastReceivedInput.SystemSpecification);
+        Assert.NotNull(redAgent.LastReceivedInput);
+        Assert.NotNull(redAgent.LastReceivedInput.Log);
+        Assert.Equal(2, redAgent.LastReceivedInput.Log.Count);
+        Assert.Equal(2, result.Log.Count);
+        Assert.Same(specification, requirementsAgent.LastReceivedInput?.SystemSpecification);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_WhenContinuingWithoutNextAgent_ReturnsLastResult()
+    {
+        var requirementsResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, []);
+        var requirementsAgent = new FakeAgent(requirementsResult, CodingAgentRole.Requirements);
+        var orchestrator = new CodingAgentOrchestrator([requirementsAgent]);
+
+        var result = await orchestrator.InvokeAsync(new AgentExecutionInput("prompt"));
+
+        Assert.Equal(AgentStopSignal.Continue, result.StopSignal);
+        Assert.Equal(1, requirementsAgent.ExecuteCallCount);
     }
 
     [Theory]

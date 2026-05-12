@@ -75,7 +75,7 @@ var spec = new SystemSpecification("Users can authenticate via OAuth2.");
 
 ### CodingAgentOrchestrator
 
-`CodingAgentOrchestrator` coordinates a team of `ICodingAgent` instances. It selects the agent with the `Requirements` role and invokes it with the provided input. `AgentExecutionInput` can include a nullable `SystemSpecification` and prior action log entries for agent context. The orchestrator codifies stop-signal interpretation rules via `DetermineRecommendedAction`:
+`CodingAgentOrchestrator` coordinates a team of `ICodingAgent` instances. It starts with the `Requirements` agent, then continues through subsequent available roles while agents return `Continue`; it stops when a stop signal is returned or when no later role is available. `AgentExecutionInput` can include a nullable `SystemSpecification` and prior action log entries for agent context. The orchestrator codifies stop-signal interpretation rules via `DetermineRecommendedAction`:
 - `HardStop` → halt and escalate to a human
 - `SoftStop` → route back for rework
 - `Continue` → proceed to the next role
