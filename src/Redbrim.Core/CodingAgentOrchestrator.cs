@@ -28,11 +28,9 @@ public sealed class CodingAgentOrchestrator
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        var selectedAgent = _team.FirstOrDefault(agent => agent.Role == CodingAgentRole.Requirements)
-            ?? throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
-
         var orderedAgents = _team.OrderBy(agent => agent.Role).ToList();
-        ICodingAgent currentAgent = selectedAgent;
+        var currentAgent = _team.FirstOrDefault(agent => agent.Role == CodingAgentRole.Requirements)
+            ?? throw new InvalidOperationException($"No agent with role '{CodingAgentRole.Requirements}' is available.");
         List<AgentActionLogEntry> accumulatedLog = [.. (input.Log ?? [])];
 
         while (true)
