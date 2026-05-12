@@ -1,4 +1,7 @@
-namespace Redbrim.Core;
+using Redbrim.Core.Entities;
+using Redbrim.Core.Enumerations;
+
+namespace Redbrim.Core.Interfaces;
 
 public interface ICodingAgent
 {

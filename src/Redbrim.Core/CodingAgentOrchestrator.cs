@@ -1,3 +1,6 @@
+using Redbrim.Core.Enumerations;
+using Redbrim.Core.Interfaces;
+
 namespace Redbrim.Core;
 
 public enum RecommendedAction

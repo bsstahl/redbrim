@@ -1,3 +1,3 @@
-namespace Redbrim.Core;
+namespace Redbrim.Core.Entities;
 
 public sealed record SystemSpecification(string Description);
