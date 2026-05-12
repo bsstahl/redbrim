@@ -15,7 +15,12 @@ var spec = new SystemSpecification("Users can authenticate via OAuth2.");
 
 ### ICodingAgent
 
-`ICodingAgent` is the contract that all agents implement. Each agent exposes a `Name`, a `Role` (`CodingAgentRole`), a list of `RequiredCapabilities`, and an `ExecuteAsync` method that accepts an `AgentExecutionInput` and returns an `AgentExecutionResult`.
+`ICodingAgent` is the contract that all agents implement. Each agent exposes a `Name`, a `Role` (`CodingAgentRole`), a list of `RequiredCapabilities`, and an `ExecuteAsync` method that accepts an `AgentExecutionInput` and returns an `AgentResult`.
+
+`AgentResult` carries:
+- `StopSignal` (`Continue`, `SoftStop`, `HardStop`) for safety decisions
+- `Completion` (`Done`, `NotDone`, `Indeterminate`) for workflow confidence
+- `Log` (`IReadOnlyList<AgentActionLogEntry>`) for structured action visibility
 
 ### CodingAgentRole
 
@@ -70,9 +75,14 @@ var spec = new SystemSpecification("Users can authenticate via OAuth2.");
 
 ### CodingAgentOrchestrator
 
-`CodingAgentOrchestrator` coordinates a team of `ICodingAgent` instances. It selects the agent with the `Requirements` role and invokes it with the provided input. The orchestrator accepts either a raw `AgentExecutionInput` or a `SystemSpecification` (whose `Description` is forwarded as the agent prompt).
+`CodingAgentOrchestrator` coordinates a team of `ICodingAgent` instances. It starts with the `Requirements` agent, then loops across the role-ordered team while agents return `Continue`; it stops only when a stop signal is returned. `AgentExecutionInput` can include a nullable `SystemSpecification` and prior action log entries for agent context. The orchestrator codifies stop-signal interpretation and next-agent selection via `DetermineRecommendedAction`:
+- `HardStop` → halt and escalate to a human
+- `SoftStop` → route back for rework
+- `Continue` → proceed to the next role
 
 ```csharp
 var orchestrator = new CodingAgentOrchestrator(team);
-var result = await orchestrator.InvokeAsync(new SystemSpecification("Describe the system here."));
+var result = await orchestrator.InvokeAsync(new AgentExecutionInput(
+    "Refine requirements into actionable acceptance criteria.",
+    new SystemSpecification("Build an OAuth2-based authentication flow.")));
 ```

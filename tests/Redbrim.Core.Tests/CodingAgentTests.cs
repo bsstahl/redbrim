@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Redbrim.Core.Tests;
 
+[ExcludeFromCodeCoverage]
 public class CodingAgentTests
 {
     [Fact]
@@ -16,7 +18,7 @@ public class CodingAgentTests
         MethodInfo executeAsync = contractType.GetMethod(nameof(ICodingAgent.ExecuteAsync))
             ?? throw new Xunit.Sdk.XunitException("ExecuteAsync method was not found.");
 
-        Assert.Equal(typeof(Task<AgentExecutionResult>), executeAsync.ReturnType);
+        Assert.Equal(typeof(Task<AgentResult>), executeAsync.ReturnType);
 
         var parameters = executeAsync.GetParameters();
         Assert.Single(parameters);

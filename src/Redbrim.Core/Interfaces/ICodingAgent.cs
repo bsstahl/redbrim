@@ -8,14 +8,37 @@ public interface ICodingAgent
 
     IReadOnlyList<string> RequiredCapabilities { get; }
 
-    Task<AgentExecutionResult> ExecuteAsync(AgentExecutionInput input);
+    Task<AgentResult> ExecuteAsync(AgentExecutionInput input);
 }
 
 public sealed record AgentExecutionInput(
     string Prompt,
+    SystemSpecification? SystemSpecification = null,
+    IReadOnlyList<AgentActionLogEntry>? Log = null,
     IReadOnlyDictionary<string, string>? Context = null);
 
-public sealed record AgentExecutionResult(
-    bool Succeeded,
-    string Summary,
-    IReadOnlyDictionary<string, string>? Data = null);
+public enum AgentStopSignal
+{
+    Continue,
+    SoftStop,
+    HardStop
+}
+
+public enum AgentCompletion
+{
+    Done,
+    NotDone,
+    Indeterminate
+}
+
+public sealed record AgentActionLogEntry(
+    DateTime Timestamp,
+    string AgentId,
+    CodingAgentRole AgentRole,
+    string Description,
+    string? Data = null);
+
+public sealed record AgentResult(
+    AgentStopSignal StopSignal,
+    AgentCompletion Completion,
+    IReadOnlyList<AgentActionLogEntry> Log);
