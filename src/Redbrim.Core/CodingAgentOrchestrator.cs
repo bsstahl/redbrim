@@ -1,6 +1,6 @@
 namespace Redbrim.Core;
 
-public enum OrchestratorAction
+public enum RecommendedAction
 {
     ProceedToNextRole,
     RouteBackForRework,
@@ -29,21 +29,15 @@ public sealed class CodingAgentOrchestrator
         return selectedAgent.ExecuteAsync(input);
     }
 
-    public Task<AgentResult> InvokeAsync(SystemSpecification specification)
-    {
-        ArgumentNullException.ThrowIfNull(specification);
-        return InvokeAsync(new AgentExecutionInput(specification.Description));
-    }
-
-    public static OrchestratorAction DetermineNextAction(AgentResult result)
+    public static RecommendedAction DetermineRecommendedAction(AgentResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
 
         return result.StopSignal switch
         {
-            AgentStopSignal.HardStop => OrchestratorAction.HaltAndEscalateToHuman,
-            AgentStopSignal.SoftStop => OrchestratorAction.RouteBackForRework,
-            AgentStopSignal.Continue => OrchestratorAction.ProceedToNextRole,
+            AgentStopSignal.HardStop => RecommendedAction.HaltAndEscalateToHuman,
+            AgentStopSignal.SoftStop => RecommendedAction.RouteBackForRework,
+            AgentStopSignal.Continue => RecommendedAction.ProceedToNextRole,
             _ => throw new InvalidOperationException($"Unhandled stop signal '{result.StopSignal}'.")
         };
     }

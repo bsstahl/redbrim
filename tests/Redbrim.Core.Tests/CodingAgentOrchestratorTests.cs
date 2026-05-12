@@ -46,18 +46,20 @@ public class CodingAgentOrchestratorTests
     }
 
     [Fact]
-    public async Task InvokeAsync_NullSystemSpecification_ThrowsArgumentNullException()
+    public async Task InvokeAsync_InputCanIncludeSystemSpecification()
     {
         var orchestrator = new CodingAgentOrchestrator([new FakeAgent(new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, []), CodingAgentRole.Requirements)]);
-        await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            orchestrator.InvokeAsync((SystemSpecification)null!));
+        var specification = new SystemSpecification("spec");
+        var input = new AgentExecutionInput("prompt", specification);
+
+        await orchestrator.InvokeAsync(input);
     }
 
     [Fact]
     public async Task InvokeAsync_SelectsSpecAgentInTeam_AndReturnsResult()
     {
-        var nonSpecResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "non-spec")]);
-        var expectedResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "spec")]);
+        var nonSpecResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "fake", CodingAgentRole.Red, "non-spec")]);
+        var expectedResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "fake", CodingAgentRole.Requirements, "spec")]);
         var input = new AgentExecutionInput("test prompt");
         var nonSpecAgent = new FakeAgent(nonSpecResult, CodingAgentRole.Red);
         var specAgent = new FakeAgent(expectedResult, CodingAgentRole.Requirements);
@@ -74,8 +76,8 @@ public class CodingAgentOrchestratorTests
     public async Task InvokeAsync_WhenNoSpecAgentExists_ThrowsInvalidOperationException()
     {
         var input = new AgentExecutionInput("test prompt");
-        var firstAgent = new FakeAgent(new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "first")]), CodingAgentRole.Red);
-        var secondAgent = new FakeAgent(new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "second")]), CodingAgentRole.Green);
+        var firstAgent = new FakeAgent(new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "fake", CodingAgentRole.Red, "first")]), CodingAgentRole.Red);
+        var secondAgent = new FakeAgent(new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, [new AgentActionLogEntry(DateTime.UtcNow, "fake", CodingAgentRole.Green, "second")]), CodingAgentRole.Green);
         var orchestrator = new CodingAgentOrchestrator([firstAgent, secondAgent]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -96,37 +98,38 @@ public class CodingAgentOrchestratorTests
     }
 
     [Fact]
-    public async Task InvokeAsync_WithSystemSpecification_PassesDescriptionToSpecAgent()
+    public async Task InvokeAsync_WithSystemSpecificationInInput_ForwardsInputToSpecAgent()
     {
         var agentResult = new AgentResult(AgentStopSignal.Continue, AgentCompletion.Done, []);
         var specification = new SystemSpecification("My initial system description");
         var agent = new FakeAgent(agentResult, CodingAgentRole.Requirements);
         var orchestrator = new CodingAgentOrchestrator([agent]);
+        var input = new AgentExecutionInput("My prompt", specification);
 
-        await orchestrator.InvokeAsync(specification);
+        await orchestrator.InvokeAsync(input);
 
         Assert.NotNull(agent.LastReceivedInput);
-        Assert.Equal(specification.Description, agent.LastReceivedInput.Prompt);
+        Assert.Same(specification, agent.LastReceivedInput.SystemSpecification);
     }
 
     [Theory]
-    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Done, OrchestratorAction.HaltAndEscalateToHuman)]
-    [InlineData(AgentStopSignal.HardStop, AgentCompletion.NotDone, OrchestratorAction.HaltAndEscalateToHuman)]
-    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Unknown, OrchestratorAction.HaltAndEscalateToHuman)]
-    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Done, OrchestratorAction.RouteBackForRework)]
-    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.NotDone, OrchestratorAction.RouteBackForRework)]
-    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Unknown, OrchestratorAction.RouteBackForRework)]
-    [InlineData(AgentStopSignal.Continue, AgentCompletion.Done, OrchestratorAction.ProceedToNextRole)]
-    [InlineData(AgentStopSignal.Continue, AgentCompletion.NotDone, OrchestratorAction.ProceedToNextRole)]
-    [InlineData(AgentStopSignal.Continue, AgentCompletion.Unknown, OrchestratorAction.ProceedToNextRole)]
-    public void DetermineNextAction_UsesStopSignal_AndIgnoresCompletion(
+    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Done, RecommendedAction.HaltAndEscalateToHuman)]
+    [InlineData(AgentStopSignal.HardStop, AgentCompletion.NotDone, RecommendedAction.HaltAndEscalateToHuman)]
+    [InlineData(AgentStopSignal.HardStop, AgentCompletion.Indeterminate, RecommendedAction.HaltAndEscalateToHuman)]
+    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Done, RecommendedAction.RouteBackForRework)]
+    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.NotDone, RecommendedAction.RouteBackForRework)]
+    [InlineData(AgentStopSignal.SoftStop, AgentCompletion.Indeterminate, RecommendedAction.RouteBackForRework)]
+    [InlineData(AgentStopSignal.Continue, AgentCompletion.Done, RecommendedAction.ProceedToNextRole)]
+    [InlineData(AgentStopSignal.Continue, AgentCompletion.NotDone, RecommendedAction.ProceedToNextRole)]
+    [InlineData(AgentStopSignal.Continue, AgentCompletion.Indeterminate, RecommendedAction.ProceedToNextRole)]
+    public void DetermineRecommendedAction_UsesStopSignal_AndIgnoresCompletion(
         AgentStopSignal stopSignal,
         AgentCompletion completion,
-        OrchestratorAction expectedAction)
+        RecommendedAction expectedAction)
     {
         var result = new AgentResult(stopSignal, completion, []);
 
-        var action = CodingAgentOrchestrator.DetermineNextAction(result);
+        var action = CodingAgentOrchestrator.DetermineRecommendedAction(result);
 
         Assert.Equal(expectedAction, action);
     }

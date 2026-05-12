@@ -13,6 +13,8 @@ public interface ICodingAgent
 
 public sealed record AgentExecutionInput(
     string Prompt,
+    SystemSpecification? SystemSpecification = null,
+    IReadOnlyList<AgentActionLogEntry>? Log = null,
     IReadOnlyDictionary<string, string>? Context = null);
 
 public enum AgentStopSignal
@@ -26,11 +28,13 @@ public enum AgentCompletion
 {
     Done,
     NotDone,
-    Unknown
+    Indeterminate
 }
 
 public sealed record AgentActionLogEntry(
     DateTime Timestamp,
+    string AgentId,
+    CodingAgentRole AgentRole,
     string Description,
     string? Data = null);
 
