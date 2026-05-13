@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Redbrim.Core.Entities;
 using Redbrim.Core.Enumerations;
 using Redbrim.Core.Interfaces;
 
