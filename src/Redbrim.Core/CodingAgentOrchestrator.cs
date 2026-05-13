@@ -1,16 +1,8 @@
+using Redbrim.Core.Entities;
+using Redbrim.Core.Enumerations;
+using Redbrim.Core.Interfaces;
+
 namespace Redbrim.Core;
-
-public enum RecommendedAction
-{
-    ProceedToNextRole,
-    RouteBackForRework,
-    HaltAndEscalateToHuman
-}
-
-public sealed record AgentRoutingDecision(
-    bool ShouldHalt,
-    ICodingAgent? NextAgent,
-    RecommendedAction Action);
 
 public sealed class CodingAgentOrchestrator
 {

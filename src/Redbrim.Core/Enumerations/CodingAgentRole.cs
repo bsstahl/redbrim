@@ -1,4 +1,4 @@
-namespace Redbrim.Core;
+namespace Redbrim.Core.Enumerations;
 
 public enum CodingAgentRole
 {
